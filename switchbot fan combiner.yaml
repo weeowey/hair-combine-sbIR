@@ -1,0 +1,87 @@
+blueprint:
+  name: Combine Speed Switches into Fan
+  description: Converts 3 speed switches into a single fan with slider (IR-controlled)
+  input:
+    fan_name:
+      name: Fan Name
+      selector:
+        text:
+    low_speed_switch:
+      name: Low Speed Switch
+      selector:
+        entity:
+          domain: switch
+    medium_speed_switch:
+      name: Medium Speed Switch
+      selector:
+        entity:
+          domain: switch
+    high_speed_switch:
+      name: High Speed Switch
+      selector:
+        entity:
+          domain: switch
+
+template:
+  - unique_id: "combined_fan_{{ input_fan_name | slugify }}"
+    fan:
+      - name: "{{ input_fan_name }}"
+        unique_id: "combined_fan_{{ input_fan_name | slugify }}"
+        value_template: >
+          {% if states(input_low_speed_switch) == 'on' or states(input_medium_speed_switch) == 'on' or states(input_high_speed_switch) == 'on' %}
+            on
+          {% else %}
+            off
+          {% endif %}
+        percentage_template: >
+          {% if states(input_high_speed_switch) == 'on' %}
+            100
+          {% elif states(input_medium_speed_switch) == 'on' %}
+            66
+          {% elif states(input_low_speed_switch) == 'on' %}
+            33
+          {% else %}
+            0
+          {% endif %}
+        speed_count: 3
+        turn_on:
+          service: switch.turn_on
+          target:
+            entity_id: "{{ input_low_speed_switch }}"
+        turn_off:
+          service: switch.turn_off
+          target:
+            entity_id:
+              - "{{ input_low_speed_switch }}"
+              - "{{ input_medium_speed_switch }}"
+              - "{{ input_high_speed_switch }}"
+        set_percentage:
+          - service: switch.turn_off
+            target:
+              entity_id:
+                - "{{ input_low_speed_switch }}"
+                - "{{ input_medium_speed_switch }}"
+                - "{{ input_high_speed_switch }}"
+          - if: "{{ percentage > 0 and percentage <= 40 }}"
+            then:
+              - service: switch.turn_on
+                target:
+                  entity_id: "{{ input_low_speed_switch }}"
+          - if: "{{ percentage > 40 and percentage <= 70 }}"
+            then:
+              - service: switch.turn_on
+                target:
+                  entity_id: "{{ input_medium_speed_switch }}"
+          - if: "{{ percentage > 70 }}"
+            then:
+              - service: switch.turn_on
+                target:
+                  entity_id: "{{ input_high_speed_switch }}"
+          - if: "{{ percentage == 0 }}"
+            then:
+              - service: switch.turn_off
+                target:
+                  entity_id:
+                    - "{{ input_low_speed_switch }}"
+                    - "{{ input_medium_speed_switch }}"
+                    - "{{ input_high_speed_switch }}"
